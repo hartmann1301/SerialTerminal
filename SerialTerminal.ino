@@ -6,55 +6,54 @@
 Timer timer;
 MCUFRIEND_kbv tft;
 
+#include "globals.h"
+
 // helping headers
 #include "displayHelper.h"
-#include "baudRates.h"
+#include "buttonHelper.h"
+
 #include "coloredLogo.h"
-
-#define TAB_LENGTH 6
-const int TAB_RASTER = 6*6;
-
-// 320 * 480 is 60 lines with 8 pixels
-int16_t lineHeight = 8;
-int16_t topOffset = 8 * lineHeight;
-int16_t lines = 52;
-int16_t scroll = 0;
-int16_t cursorX = 0;
-int16_t cursorY = topOffset;
-
-boolean isPageFull = false;
-long receivedBytes = 0;
 
 void setup()
 {
   // input for BaudRate Button
-  pinMode(setBaudPinIn, INPUT_PULLUP);
+  pinMode(buttonPin, INPUT_PULLUP);
 
   // write things to statusBar
   initDisplay();
 
-  tft.setCursor(250, 8);
-  tft.print(baudRates[baudCounter], DEC);
-
   // logo left
   drawLogo(0, 0, terminalLogo, 64, 64);
 
-  // init info timer
+  // init statusbar timer
   timer.every(1000, updateStatusBar);
 
   // start receiving data
-  Serial.begin(baudRates[baudCounter]);
-}
+  Serial.begin(baudRates[baudRateCurrent]);
+  Serial.println("Start SerialTerminal:");
 
-
-// a function to be executed periodically
-void updateStatusBar() {
-
-  writeToDisplay(250, 24, millis() / 1000);
-  writeToDisplay(250, 40, receivedBytes);
+  /*
+  // ist takes about 2ms to print one Letter, that is very low
+  long measureStart = micros();
+  tft.print(".");
+  // get measure duration
+  long measureDuration = micros() - measureStart;
+  Serial.println(measureDuration, DEC);
+  */
 }
 
 void resetCursor() {
+  /*
+  // save the cursor position for deleting
+  cursorPositionsList[cursorPositionsCounter] = tft.getCursorX();
+
+  if (cursorPositionsCounter < lines) {
+    cursorPositionsCounter++;
+  } else {
+    cursorPositionsCounter = 0;
+  }
+
+  */
   tft.setCursor(0, topOffset + (lineHeight * lines + scroll * lineHeight) % (lineHeight * lines));
 }
 
@@ -63,7 +62,7 @@ void scrollOneLine() {
   // int16_t tmpColor = scroll % 2 == 0 ? tft.color565(24, 24, 24) : BLACK;
 
   // clear space for the new line
-  tft.fillRect(0, topOffset + scroll * lineHeight, 320, 8, BLACK);
+  tft.fillRect(0, topOffset + scroll * lineHeight, 320, 7, BLACK);
 
   if (++scroll >= lines)
     scroll = 0;
@@ -73,7 +72,7 @@ void scrollOneLine() {
 
 void doTabStop() {
   // set new position
-  tft.setCursor((tft.getCursorX()/TAB_RASTER + 1)*TAB_RASTER, tft.getCursorY());
+  tft.setCursor((tft.getCursorX() / TAB_RASTER + 1)*TAB_RASTER, tft.getCursorY());
 }
 
 void checkSerial() {
@@ -85,6 +84,7 @@ void checkSerial() {
     char data = Serial.read();
     //Serial.print(data);
     receivedBytes++;
+    currUpstream++;
 
     boolean printData = true;
 
@@ -128,7 +128,7 @@ void loop()
 {
   checkSerial();
 
-  checkBaudButton();
+  checkButton();
 
   // print infos on screen
   timer.update();
